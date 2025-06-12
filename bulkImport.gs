@@ -374,3 +374,155 @@ function getBulkImportInstructionsData() {
     c3: paramC3
   };
 }
+
+function addKeywordSummaryTable() {
+  // 1. Récupération des feuilles principales
+  var dates = [];
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet2 = spreadsheet.getSheetByName("Semrush");
+  var sheet3 = spreadsheet.getSheetByName("Configuration");
+  var allSheets = spreadsheet.getSheets();
+
+  // 2. Filtrer et trier les feuilles "MM-YY"
+  var filteredSheets = allSheets.filter(function(sheet) {
+    return /(\d{2})-(\d{2})/.test(sheet.getName());
+  });
+
+  filteredSheets.sort(function(a, b) {
+    var dateA = a.getName().split('-').map(Number);
+    var dateB = b.getName().split('-').map(Number);
+    var actualDateA = new Date(2000 + dateA[1], dateA[0] - 1);
+    var actualDateB = new Date(2000 + dateB[1], dateB[0] - 1);
+    return actualDateB - actualDateA;
+  });
+
+  if (filteredSheets.length > 16) {
+    filteredSheets = filteredSheets.slice(0, 16);
+  }
+
+  var latestDate = filteredSheets[0].getName();
+  var [mm, yy] = latestDate.split('-').map(Number);
+  var comparisonChoice = sheet3.getRange("C7").getValue();
+
+  // 3. Détermination des périodes de comparaison
+  var m1, n1;
+  if (comparisonChoice === "Mensuel") {
+    sheet2.getRange("H2").setValue("Comparaison M-1");
+    m1 = new Date(2000 + yy, mm - 2); // -1 car janvier = 0
+    n1 = new Date(2000 + yy - 1, mm - 1);
+  } else if (comparisonChoice === "Trimestriel") {
+    sheet2.getRange("H2").setValue("Comparaison M-3");
+    m1 = new Date(2000 + yy, mm - 4);
+    n1 = new Date(2000 + yy - 1, mm - 1);
+  } else if (comparisonChoice === "Semestriel") {
+    sheet2.getRange("H2").setValue("Comparaison M-6");
+    m1 = new Date(2000 + yy, mm - 7);
+    n1 = new Date(2000 + yy - 1, mm - 1);
+  }
+
+  var m1Str = (m1.getMonth() + 1).toString().padStart(2, '0') + '-' + (m1.getYear() - 100).toString().padStart(2, '0');
+  var n1Str = (n1.getMonth() + 1).toString().padStart(2, '0') + '-' + (n1.getYear() - 100).toString().padStart(2, '0');
+
+  // 4. Récupération des feuilles pour chaque période (undefined si non trouvée)
+  var m1Sheet = filteredSheets.find(sheet => sheet.getName() === m1Str);
+  var n1Sheet = filteredSheets.find(sheet => sheet.getName() === n1Str);
+
+  var brandStr = sheet3.getRange("C5").getValue();
+  var brand = brandStr.split("|");
+
+  var sheets = [filteredSheets[0], m1Sheet, n1Sheet];
+  var rowData = [];
+  var rowData2 = [];
+
+  // 5. Parcours des feuilles à traiter
+  for (var i = sheets.length - 1; i > -1; i--) {
+    var sheet = sheets[i];
+    if (!sheet) {
+      // Feuille absente => on remplit avec des zéros ou valeurs vides
+      rowData.push([0, 0, 0, 0]);
+      rowData2.push([0, 0, 0, 0]);
+      continue;
+    }
+    var keywordPositions = sheet.getRange("C5:C" + sheet.getLastRow()).getValues().flat();
+    var top3Count = keywordPositions.filter(pos => pos <= 3).length;
+    var top10Count = keywordPositions.filter(pos => pos <= 10).length;
+    var top11_20Count = keywordPositions.filter(pos => pos >= 11 && pos <= 20).length;
+    var totalCount = keywordPositions.length;
+    rowData.push([totalCount, top3Count, top10Count, top11_20Count]);
+
+    // Calculs brand
+    var allData = sheet.getRange("A5:C" + sheet.getLastRow()).getValues();
+    var filteredData = allData.filter(row => {
+      for (var j = 0; j < brand.length; j++) {
+        if (String(row[0]).includes(brand[j])) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    var top3CountBrand = filteredData.filter(row => row[2] <= 3).length;
+    var top10CountBrand = filteredData.filter(row => row[2] <= 10).length;
+    var top11_20CountBrand = filteredData.filter(row => row[2] >= 11 && row[2] <= 20).length;
+    var totalCountBrand = filteredData.length;
+    rowData2.push([totalCountBrand, top3CountBrand, top10CountBrand, top11_20CountBrand]);
+  }
+
+  // 6. Écriture des données verticalement (même logique qu’avant)
+  for (var i = 0; i < rowData.length - 1; i++) {
+    var row = rowData[i];
+    var rowBrand = rowData2[i];
+    for (var j = 0; j < row.length; j++) {
+      sheet2.getRange(5 + j * 2, 4 + i * 4).setValue(row[j]);
+      sheet2.getRange(16 + j * 2, 4 + i * 4).setValue(rowBrand[j]);
+    }
+  }
+  var rowBrand = rowData2[2];
+  var row = rowData[2];
+  for (var j = 0; j < row.length; j++) {
+    sheet2.getRange(5 + j * 2, 13).setValue(row[j]);
+    sheet2.getRange(16 + j * 2, 13).setValue(rowBrand[j]);
+  }
+  sheet2.getRange(3, 4).setValue(formatDateSemrush(n1Str));
+  sheet2.getRange(3, 8).setValue(formatDateSemrush(m1Str));
+  sheet2.getRange(3, 13).setValue(formatDateSemrush(latestDate));
+
+  // 7. Courbe d'évolution multi-mois (inchangée)
+  var nbMotsClesTot = [];
+  var nbMotsClesTop10 = [];
+  filteredSheets.sort(function(a, b) {
+    var dateA = a.getName().split('-').map(Number);
+    var dateB = b.getName().split('-').map(Number);
+    var actualDateA = new Date(2000 + dateA[1], dateA[0] - 1);
+    var actualDateB = new Date(2000 + dateB[1], dateB[0] - 1);
+    return actualDateA - actualDateB;
+  });
+  filteredSheets.forEach(function(sheet) {
+    var totalMotsClesTop10 = 0;
+    var sheetName = sheet.getName();
+    dates.push(sheetName);
+    var data2 = sheet.getRange("C5:C" + sheet.getLastRow()).getValues();
+    nbMotsClesTot.push(data2.length);
+    for (var i = 0; i < data2.length; i++) {
+      if (data2[i][0] < 11) {
+        totalMotsClesTop10++;
+      }
+    }
+    nbMotsClesTop10.push(totalMotsClesTop10);
+  });
+
+  var combinedArray = [];
+  for (var i = 0; i < dates.length; i++) {
+    var row = [];
+    row.push(dates[i]);
+    if (i < nbMotsClesTot.length) {
+      row.push(nbMotsClesTot[i]);
+      row.push(nbMotsClesTop10[i]);
+    } else {
+      row.push('0');
+    }
+    combinedArray.push(row);
+  }
+  var range = sheet2.getRange(2, 15, combinedArray.length, 3);
+  range.setValues(combinedArray);
+}
