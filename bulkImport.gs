@@ -293,7 +293,6 @@ function getPreviousMonthOrYearSheetName(currentSheetName, mode) {
     var year = parseInt(parts[1], 10);
 
     if (mode === "month") {
-        // Si le mois est janvier, le mois précédent serait décembre de l'année précédente
         if (month === 6) {
             month = 12;
             year -= 1;

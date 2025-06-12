@@ -135,7 +135,9 @@
    * [3] Injecte le HTML dans le bloc #configLink
    */
   function setBulkImportInstructions() {
+    console.log("Appel google.script.run.getBulkImportInstructionsData");
     google.script.run.withSuccessHandler(function(data) {
+      console.log("[DEBUG] Données reçues:", data);
       // [1] Formatage "Mars 2025" à partir de code type "03-25" si besoin
       const monthNames = [
         "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -168,11 +170,9 @@
         <a href="${exportUrl}" target="_blank">Exports mots-clés positionnés</a>
       `;
       const box = document.getElementById("configLink");
-      box.innerHTML = instructionsHtml;
+      box.innerHTML = "<b>Affichage test instructions</b>"; // test temporaire
       box.style.display = "block";
       box.classList.remove("hidden");
-      // Log pour debug (peut être retiré)
-      // console.log("[setBulkImportInstructions] Instructions affichées :", instructionsHtml);
     }).getBulkImportInstructionsData();
   }
 
