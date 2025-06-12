@@ -290,6 +290,17 @@
     }
     logHtml(`<hr><b>🏁 Import terminé pour tous les mois !</b>`);
     updateProgressBarBulk(100);
+
+      // AJOUT AUTOMATIQUE DU TABLEAU DE BORD
+    logHtml("⏳ Mise à jour du tableau de bord...");
+    google.script.run
+      .withSuccessHandler(function() {
+        logHtml("✅ <b>Tableau Semrush mis à jour</b>");
+      })
+      .withFailureHandler(function(e) {
+        logHtml("❌ Erreur lors de la mise à jour du tableau de bord : " + e.message);
+      })
+      .addKeywordSummaryTable();
   }
 </script>
 </body>
