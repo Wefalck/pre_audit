@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    /* Style copié depuis 05-uploadForm.html */
+    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
+
+    body {
+      font-family: 'Google Sans', sans-serif;
+      margin: 20px;
+      background-color: white;
+      max-width: 900px;
+    }
+
+    .tab-content {
+      display: block;
+    }
+
+    input[type="button"] {
+      background-color: #073763;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+      border: none;
+      margin: 30px auto 0 auto;
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 5px;
+      width: 50%;
+      display: block;
+    }
+
+    input[type="button"]:hover {
+      background-color: #0b4a8a;
+    }
+
+    input[type="file"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .file-label {
+      display: block;
+      background-color: #073763;
+      color: white;
+      padding: 10px 20px;
+      font-size: 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+      width: 50%;
+      margin: 20px auto 30px auto;
+    }
+
+    .file-label:hover { background-color: #0b4a8a; }
+
+    .file-name {
+      font-size: 14px;
+      color: #333;
+      text-align: center;
+      display: block;
+      margin: -20px auto 20px auto;
+    }
+
+    .instructions {
+      background: #f1f3f4;
+      border-left: 5px solid #1a73e8;
+      padding: 15px;
+      font-size: 14px;
+      line-height: 1.6;
+      border-radius: 5px;
+    }
+
+    .center-margin {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #progressBar {
+      width: 100%;
+      background: #f1f3f4;
+      border-radius: 5px;
+      height: 20px;
+      overflow: hidden;
+      margin: 25px 0;
+      display: none; /* MODIFICATION : Masqué par défaut */
+    }
+
+    #progressFill {
+      height: 100%;
+      width: 0%;
+      background: #073763;
+      transition: width 0.3s;
+    }
+
+    #statusMessage {
+        margin-top: 30px;
+        background: #f4f4f4;
+        padding: 12px;
+        border-radius: 4px;
+        min-height: 120px;
+        font-size: 15px;
+        line-height: 1.6;
+        text-align: left;
+        overflow-y: auto;
+        display: none; /* MODIFICATION : Masqué par défaut */
+    }
+  </style>
+</head>
+<body>
+
+  <div id="bulkImportTab" class="tab-content active">
+    <div id="configLink" class="instructions center-margin hidden"></div>
+    
+    <label for="fileInput" class="file-label">Sélectionner des fichiers CSV (multi-mois possible)</label>
+    <input type="file" id="fileInput" multiple accept=".csv" onchange="updateFileName()">
+    <span id="fileName" class="file-name">Aucun fichier choisi</span>
+    <input type="button" value="Importer les fichiers en masse" onclick="handleBulkImport(this)">
+
+    <div id="progressBar"><div id="progressFill"></div></div>
+    <div id="statusMessage"></div>
+  </div>
+
+<script>
+  /**
+   * [1] Appelle l'Apps Script pour obtenir les mois et le paramètre C3
+   * [2] Formatte dynamiquement la zone d'instructions avec mois et lien export
+   * [3] Injecte le HTML dans le bloc #configLink
+   */
+  function setBulkImportInstructions() {
+    google.script.run.withSuccessHandler(function(data) {
+      // [1] Formatage "Mars 2025" à partir de code type "03-25" si besoin
+      const monthNames = [
+        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+      ];
+      const formattedMonths = data.months.map(code => {
+        if (!code) return '';
+        // Si déjà au format texte ("Mars 2025"), retourne direct
+        if (isNaN(Number(code))) return code;
+        // Sinon transforme "03-25" => "Mars 2025"
+        const [mois, annee] = code.split("-");
+        const monthIndex = parseInt(mois, 10) - 1;
+        const year = "20" + annee;
+        return monthNames[monthIndex] + " " + year;
+      });
+
+      // [2] Construction du lien export dynamique
+      const exportUrl = `https://fr.semrush.com/analytics/organic/positions/?sortField=&sortDirection=desc&filter=%7B%22search%22%3A%22%22%2C%22volume%22%3A%22%22%2C%22positions%22%3A%22%22%2C%22positionsType%22%3A%22organic%22%2C%22serpFeatures%22%3A%22%22%2C%22intent%22%3A%22%22%2C%22intentPositions%22%3A%22%22%2C%22kd%22%3A%22%22%2C%22advanced%22%3A%7B%7D%7D&db=fr&q=${encodeURIComponent(data.c3)}&searchType=domain`;
+
+      // [3] Génération et injection du HTML d'instructions
+      const instructionsHtml = `
+        <b>Instructions :</b><br>
+        1. Téléchargez les exports Semrush pour les mois de :
+        <ul style="margin-bottom: 6px;">
+          <li>${formattedMonths[0]}</li>
+          <li>${formattedMonths[1]}</li>
+          <li>${formattedMonths[2]}</li>
+        </ul>
+        2. Sélectionnez les 3 fichiers CSV.<br><br>
+        <a href="${exportUrl}" target="_blank">Exports mots-clés positionnés</a>
+      `;
+      const box = document.getElementById("configLink");
+      box.innerHTML = instructionsHtml;
+      box.style.display = "block";
+      box.classList.remove("hidden");
+      // Log pour debug (peut être retiré)
+      // console.log("[setBulkImportInstructions] Instructions affichées :", instructionsHtml);
+    }).getBulkImportInstructionsData();
+  }
+
+  // Appel auto au chargement de la page
+  window.onload = function() {
+    setBulkImportInstructions();
+  };
+
+  // === Fonctions déjà existantes pour le bulk import ===
+
+  function updateFileName() {
+    const input = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileName');
+    if (!input.files.length) fileNameDisplay.textContent = "Aucun fichier choisi";
+    else if (input.files.length === 1) fileNameDisplay.textContent = `📄 ${input.files[0].name}`;
+    else fileNameDisplay.textContent = `📁 ${input.files.length} fichiers sélectionnés`;
+  }
+
+  // 🔄 Import en masse
+  function handleBulkImport(btn) {
+    document.getElementById('progressBar').style.display = 'block';
+    document.getElementById('statusMessage').style.display = 'block';
+
+    btn.disabled = true;
+    const files = document.getElementById('fileInput').files;
+    if (!files.length) {
+      logHtml("❌ Aucun fichier sélectionné.");
+      btn.disabled = false;
+      return;
+    }
+    document.getElementById('statusMessage').innerHTML = '';
+    logHtml(`🚀 Lancement de l'import (${files.length} fichier(s))`);
+    
+    const readPromises = Array.from(files).map(file =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ csvString: e.target.result, fileName: file.name });
+        reader.onerror = () => reject(new Error("Erreur lecture : " + file.name));
+        reader.readAsText(file);
+      })
+    );
+    Promise.all(readPromises)
+      .then(processAllFilesBulk)
+      .catch(error => {
+        logHtml(`❌ Erreur lecture : ${error.message}`);
+        btn.disabled = false;
+      });
+  }
+
+  function logHtml(msg) {
+    const logDiv = document.getElementById("statusMessage");
+    logDiv.innerHTML += msg + "<br>";
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  function updateProgressBarBulk(percent) {
+    const fill = document.getElementById('progressFill');
+    if (fill) fill.style.width = percent + "%";
+  }
+
+  async function processAllFilesBulk(files) {
+    const filesByDate = {};
+    files.forEach(file => {
+      const match = file.fileName.match(/\d{8}/);
+      if (!match) return;
+      const raw = match[0];
+      const dateKey = raw.substr(4,2) + '-' + raw.substr(2,2);
+      if (!filesByDate[dateKey]) filesByDate[dateKey] = [];
+      filesByDate[dateKey].push(file);
+    });
+
+    const totalDates = Object.keys(filesByDate).length;
+    let doneDates = 0;
+    updateProgressBarBulk(0);
+
+    for (const sheetName of Object.keys(filesByDate).sort()) {
+      const fileList = filesByDate[sheetName];
+      logHtml(`<hr><b>📅 Mois : ${sheetName} (${fileList.length} fichier(s))</b>`);
+      let allMappedData = [];
+
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        logHtml(`➡️ [${sheetName}] Fichier ${i + 1}/${fileList.length} : <code>${file.fileName}</code>`);
+        try {
+          logHtml("— Parsing en cours...");
+          const result = await new Promise((resolve, reject) => {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).parseCSVSemrush(file);
+          });
+          allMappedData = allMappedData.concat(result.mappedData);
+          logHtml(`✔️ Parsing terminé : ${result.mappedData.length} lignes`);
+        } catch (err) {
+          logHtml(`❌ Erreur parsing fichier ${file.fileName} : ${err.message}`);
+        }
+      }
+      logHtml(`🔢 Fusion & tri (${allMappedData.length} lignes pour ${sheetName})...`);
+      allMappedData.sort((a, b) => Number(b[7]) - Number(a[7]));
+
+      try {
+        logHtml("📄 Création de la feuille...");
+        await new Promise((resolve, reject) => {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).createTargetSheet(sheetName, allMappedData);
+        });
+
+        logHtml("🎨 Formatage en cours...");
+        await new Promise((resolve, reject) => {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).appliquerFormatageFinal(sheetName, allMappedData.length);
+        });
+        logHtml(`✅ Mois ${sheetName} : Import et formatage terminé (${allMappedData.length} lignes)`);
+      } catch (err) {
+        logHtml(`❌ Erreur création/formatage pour ${sheetName} : ${err.message}`);
+      }
+      
+      doneDates++;
+      updateProgressBarBulk(Math.round((doneDates / totalDates) * 100));
+    }
+    logHtml(`<hr><b>🏁 Import terminé pour tous les mois !</b>`);
+    updateProgressBarBulk(100);
+  }
+</script>
+</body>
+</html>
