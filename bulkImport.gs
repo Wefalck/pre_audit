@@ -173,7 +173,7 @@ function appliquerFormatageFinal(sheetName, nbLignes) {
   sheet.getRange("A4:J4")
     .setFontWeight("bold").setFontColor("#FFFFFF")
     .setFontFamily("Arial").setHorizontalAlignment("center")
-    .setValues([["Mots clés", "Volume", "Position", "Variation M-1", "Position M-1", "Variation N-1", "Position N-1", "URL", "Trafic", "Trafic M-1"]]);
+    .setValues([["Mots clés", "Volume", "Position", "Variation M-6", "Position M-6", "Variation N-1", "Position N-1", "URL", "Trafic", "Trafic M-6"]]);
 
   // 5. Suppression des lignes inutiles après les données (version strictement sécurisée)
   const maxRows = sheet.getMaxRows();
@@ -288,25 +288,26 @@ function appliquerFormatageFinal(sheetName, nbLignes) {
 }
 
 function getPreviousMonthOrYearSheetName(currentSheetName, mode) {
-    var parts = currentSheetName.split('-');
-    var month = parseInt(parts[0], 10);
-    var year = parseInt(parts[1], 10);
+  const parts = currentSheetName.split('-');
+  const month = parseInt(parts[0], 10);
+  const year = parseInt(parts[1], 10);
 
-    if (mode === "month") {
-        if (month === 6) {
-            month = 12;
-            year -= 1;
-        } else {
-            month -= 1;
-        }
-    } else if (mode === "year") {
-        year -= 1;  // simplement décrémenter l'année
-    }
+  // Création d'une date basée sur le nom de la feuille. Le jour n'a pas d'importance.
+  const d = new Date(2000 + year, month - 1, 1); 
 
-    // Convertir le mois en une chaîne de deux caractères (par exemple, '01' pour janvier)
-    var monthString = month < 10 ? '0' + month : '' + month;
+  if (mode === "month") {
+    // Nouvelle logique pour M-6
+    d.setMonth(d.getMonth() - 6);
+  } else if (mode === "year") {
+    d.setFullYear(d.getFullYear() - 1);
+  }
 
-    return monthString + '-' + year;
+  const newMonth = d.getMonth() + 1;
+  const newYear = d.getFullYear().toString().slice(-2);
+
+  const monthString = newMonth < 10 ? '0' + newMonth : '' + newMonth;
+
+  return monthString + '-' + newYear;
 }
 
 function trierOnglets() {
@@ -351,26 +352,45 @@ function trierOnglets() {
   }
 }
 
-function getBulkImportInstructionsData() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var configSheet = ss.getSheetByName("Configuration");
-  if (!configSheet) throw new Error("Feuille 'Configuration' introuvable.");
+function getBulkImportInstructions() {
+  const now = new Date();
 
-  // [1] Lecture des valeurs attendues
-  var months = [
-    configSheet.getRange("C11").getValue(),
-    configSheet.getRange("C10").getValue(),
-    configSheet.getRange("C9").getValue()
-  ];
-  var paramC3 = configSheet.getRange("C3").getValue();
+  // Fonction interne pour formater une date en "Mois AAAA"
+  function formatMonthYear(date) {
+    const month = date.toLocaleString('fr-FR', { month: 'long' });
+    const year = date.getFullYear();
+    return month.charAt(0).toUpperCase() + month.slice(1) + " " + year;
+  }
 
-  // [2] Log pour debug
-  Logger.log("[getBulkImportInstructionsData] months=" + JSON.stringify(months) + ", C3=" + paramC3);
+  // Calcul des dates
+  const dateCurrent = formatMonthYear(now);
+  
+  const m6Date = new Date();
+  m6Date.setMonth(m6Date.getMonth() - 6);
+  const dateM6 = formatMonthYear(m6Date);
 
-  // [3] Retourne les valeurs au front
+  const n1Date = new Date();
+  n1Date.setFullYear(n1Date.getFullYear() - 1);
+  const dateN1 = formatMonthYear(n1Date);
+
+  // Récupération de la valeur en C3 de la feuille "Configuration"
+  let domain = '';
+  const configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Configuration");
+  if (configSheet) {
+    domain = configSheet.getRange("C3").getValue();
+  }
+
+  // Construction du lien Semrush
+  const semrushUrl = `https://fr.semrush.com/analytics/organic/positions/?sortField=&sortDirection=desc&filter=%7B%22search%22%3A%22%22%2C%22volume%22%3A%22%22%2C%22positions%22%3A%22%22%2C%22positionsType%22%3A%22organic%22%2C%22serpFeatures%22%3A%22%22%2C%22intent%22%3A%22%22%2C%22intentPositions%22%3A%22%22%2C%22kd%22%3A%22%22%2C%22advanced%22%3A%7B%7D%7D&db=fr&q=${encodeURIComponent(domain)}&searchType=domain`;
+
+  // Retourne un objet avec toutes les informations nécessaires
   return {
-    months: months,
-    c3: paramC3
+    line1: "Téléchargez les exports Semrush pour les mois de :",
+    dateCurrent: dateCurrent,
+    dateM6: dateM6,
+    dateN1: dateN1,
+    semrushLink: semrushUrl,
+    semrushAnchor: "Export mots-clés Semrush"
   };
 }
 

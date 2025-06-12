@@ -3,66 +3,29 @@
 <head>
   <base target="_top">
   <style>
-    /* Style copié depuis 05-uploadForm.html */
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
-
-    body {
-      font-family: 'Google Sans', sans-serif;
-      margin: 20px;
-      background-color: white;
-      max-width: 900px;
-    }
-
-    .tab-content {
-      display: block;
-    }
-
-    input[type="button"] {
-      background-color: #073763;
-      color: white;
-      cursor: pointer;
-      transition: background 0.3s;
-      border: none;
-      margin: 30px auto 0 auto;
-      padding: 10px;
-      font-size: 14px;
-      border-radius: 5px;
-      width: 50%;
-      display: block;
-    }
-
-    input[type="button"]:hover {
-      background-color: #0b4a8a;
-    }
-
+    body { font-family: 'Google Sans', Arial, sans-serif; background: #fff; padding: 24px; }
+    
     input[type="file"] {
-      position: absolute;
-      opacity: 0;
-      width: 0;
-      height: 0;
+      display: none;
     }
 
-    .file-label {
-      display: block;
-      background-color: #073763;
-      color: white;
-      padding: 10px 20px;
-      font-size: 14px;
-      border-radius: 5px;
-      cursor: pointer;
-      text-align: center;
-      width: 50%;
-      margin: 20px auto 30px auto;
-    }
-
-    .file-label:hover { background-color: #0b4a8a; }
-
-    .file-name {
-      font-size: 14px;
-      color: #333;
-      text-align: center;
-      display: block;
-      margin: -20px auto 20px auto;
+    .file-label { background: #073763; color: #fff; border-radius: 5px; padding: 12px 0; cursor: pointer; text-align: center; width: 80%; margin: 10px 0; }
+    .file-label:hover { background: #0b4a8a; }
+    .file-name { text-align: center; margin: 8px 0; color: #333; font-size: 15px; }
+    input[type="button"] { background: #073763; color: #fff; border: none; border-radius: 5px; padding: 12px 0; width: 80%; font-size: 16px; cursor: pointer; margin: 10px 0; }
+    input[type="button"]:hover { background: #0b4a8a; }
+    
+    #statusMessage { 
+      margin-top: 30px; 
+      background: #f4f4f4; 
+      padding: 12px; 
+      border-radius: 4px; 
+      min-height: 120px; 
+      font-size: 15px; 
+      line-height: 1.6;
+      max-height: 250px;
+      overflow-y: auto;
     }
 
     .instructions {
@@ -72,116 +35,56 @@
       font-size: 14px;
       line-height: 1.6;
       border-radius: 5px;
+      text-align: left;
+      /* --- MODIFICATION 1 : Espace vertical réduit --- */
+      margin: 0 0 20px 0;
     }
 
-    .center-margin {
-      text-align: center;
-      margin: 20px 0;
-    }
+    .hidden { display: none; }
 
-    .hidden {
-      display: none;
-    }
+    #progressBar { width: 100%; background: #f1f3f4; border-radius: 5px; height: 20px; overflow: hidden; margin: 25px 0; }
+    #progressFill { height: 100%; width: 0%; background: #073763; transition: width 0.3s; }
 
-    #progressBar {
-      width: 100%;
-      background: #f1f3f4;
-      border-radius: 5px;
-      height: 20px;
-      overflow: hidden;
-      margin: 25px 0;
-      display: none; /* MODIFICATION : Masqué par défaut */
-    }
-
-    #progressFill {
-      height: 100%;
-      width: 0%;
-      background: #073763;
-      transition: width 0.3s;
-    }
-
-    #statusMessage {
-        margin-top: 30px;
-        background: #f4f4f4;
-        padding: 12px;
-        border-radius: 4px;
-        min-height: 120px;
-        font-size: 15px;
-        line-height: 1.6;
-        text-align: left;
-        overflow-y: auto;
-        display: none; /* MODIFICATION : Masqué par défaut */
+    /* --- MODIFICATION 2 : Conteneur pour centrer les boutons --- */
+    .actions-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
   </style>
 </head>
 <body>
-
-  <div id="bulkImportTab" class="tab-content active">
-    <div id="configLink" class="instructions center-margin hidden"></div>
-    
+  <div id="configLink" class="instructions hidden"></div>
+  
+  <div class="actions-container">
     <label for="fileInput" class="file-label">Sélectionner des fichiers CSV (multi-mois possible)</label>
     <input type="file" id="fileInput" multiple accept=".csv" onchange="updateFileName()">
     <span id="fileName" class="file-name">Aucun fichier choisi</span>
     <input type="button" value="Importer les fichiers en masse" onclick="handleBulkImport(this)">
-
-    <div id="progressBar"><div id="progressFill"></div></div>
-    <div id="statusMessage"></div>
   </div>
 
+  <div id="progressBar" class="hidden"><div id="progressFill"></div></div>
+  <div id="statusMessage" class="hidden"></div>
+
 <script>
-  /**
-   * [1] Appelle l'Apps Script pour obtenir les mois et le paramètre C3
-   * [2] Formatte dynamiquement la zone d'instructions avec mois et lien export
-   * [3] Injecte le HTML dans le bloc #configLink
-   */
-  function setBulkImportInstructions() {
-    console.log("Appel google.script.run.getBulkImportInstructionsData");
+  window.onload = function () {
     google.script.run.withSuccessHandler(function(data) {
-      console.log("[DEBUG] Données reçues:", data);
-      // [1] Formatage "Mars 2025" à partir de code type "03-25" si besoin
-      const monthNames = [
-        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
-      ];
-      const formattedMonths = data.months.map(code => {
-        if (!code) return '';
-        // Si déjà au format texte ("Mars 2025"), retourne direct
-        if (isNaN(Number(code))) return code;
-        // Sinon transforme "03-25" => "Mars 2025"
-        const [mois, annee] = code.split("-");
-        const monthIndex = parseInt(mois, 10) - 1;
-        const year = "20" + annee;
-        return monthNames[monthIndex] + " " + year;
-      });
-
-      // [2] Construction du lien export dynamique
-      const exportUrl = `https://fr.semrush.com/analytics/organic/positions/?sortField=&sortDirection=desc&filter=%7B%22search%22%3A%22%22%2C%22volume%22%3A%22%22%2C%22positions%22%3A%22%22%2C%22positionsType%22%3A%22organic%22%2C%22serpFeatures%22%3A%22%22%2C%22intent%22%3A%22%22%2C%22intentPositions%22%3A%22%22%2C%22kd%22%3A%22%22%2C%22advanced%22%3A%7B%7D%7D&db=fr&q=${encodeURIComponent(data.c3)}&searchType=domain`;
-
-      // [3] Génération et injection du HTML d'instructions
-      const instructionsHtml = `
-        <b>Instructions :</b><br>
-        1. Téléchargez les exports Semrush pour les mois de :
-        <ul style="margin-bottom: 6px;">
-          <li>${formattedMonths[0]}</li>
-          <li>${formattedMonths[1]}</li>
-          <li>${formattedMonths[2]}</li>
-        </ul>
-        2. Sélectionnez les 3 fichiers CSV.<br><br>
-        <a href="${exportUrl}" target="_blank">Exports mots-clés positionnés</a>
-      `;
-      const box = document.getElementById("configLink");
-      box.innerHTML = "<b>Affichage test instructions</b>"; // test temporaire
-      box.style.display = "block";
-      box.classList.remove("hidden");
-    }).getBulkImportInstructionsData();
-  }
-
-  // Appel auto au chargement de la page
-  window.onload = function() {
-    setBulkImportInstructions();
+      if (data && data.semrushLink) {
+        const html = `
+          <b>${data.line1}</b>
+          <ul style="margin-top: 8px; margin-bottom: 15px; padding-left: 20px;">
+            <li>${data.dateCurrent}</li>
+            <li>${data.dateM6} (M-6)</li>
+            <li>${data.dateN1} (N-1)</li>
+          </ul>
+          <a href="${data.semrushLink}" target="_blank">${data.semrushAnchor}</a>
+        `;
+        const box = document.getElementById("configLink");
+        box.innerHTML = html;
+        box.classList.remove("hidden");
+      }
+    }).getBulkImportInstructions();
   };
-
-  // === Fonctions déjà existantes pour le bulk import ===
 
   function updateFileName() {
     const input = document.getElementById('fileInput');
@@ -191,11 +94,7 @@
     else fileNameDisplay.textContent = `📁 ${input.files.length} fichiers sélectionnés`;
   }
 
-  // 🔄 Import en masse
   function handleBulkImport(btn) {
-    document.getElementById('progressBar').style.display = 'block';
-    document.getElementById('statusMessage').style.display = 'block';
-
     btn.disabled = true;
     const files = document.getElementById('fileInput').files;
     if (!files.length) {
@@ -203,7 +102,10 @@
       btn.disabled = false;
       return;
     }
-    document.getElementById('statusMessage').innerHTML = '';
+
+    document.getElementById('progressBar').classList.remove('hidden');
+    document.getElementById('statusMessage').classList.remove('hidden');
+
     logHtml(`🚀 Lancement de l'import (${files.length} fichier(s))`);
     
     const readPromises = Array.from(files).map(file =>
@@ -232,7 +134,7 @@
     const fill = document.getElementById('progressFill');
     if (fill) fill.style.width = percent + "%";
   }
-
+  
   async function processAllFilesBulk(files) {
     const filesByDate = {};
     files.forEach(file => {
@@ -284,23 +186,23 @@
       } catch (err) {
         logHtml(`❌ Erreur création/formatage pour ${sheetName} : ${err.message}`);
       }
-      
+
       doneDates++;
       updateProgressBarBulk(Math.round((doneDates / totalDates) * 100));
     }
     logHtml(`<hr><b>🏁 Import terminé pour tous les mois !</b>`);
     updateProgressBarBulk(100);
 
-      // AJOUT AUTOMATIQUE DU TABLEAU DE BORD
-    logHtml("⏳ Mise à jour du tableau de bord...");
-    google.script.run
-      .withSuccessHandler(function() {
-        logHtml("✅ <b>Tableau Semrush mis à jour</b>");
-      })
-      .withFailureHandler(function(e) {
-        logHtml("❌ Erreur lors de la mise à jour du tableau de bord : " + e.message);
-      })
-      .addKeywordSummaryTable();
+        // 3. Lancement de la mise à jour du tableau de bord "Semrush"
+    try {
+        logHtml("📊 Mise à jour du tableau de bord 'Semrush'...");
+        await new Promise((resolve, reject) => {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).addKeywordSummaryTable();
+        });
+        logHtml("✔️ Tableau de bord mis à jour avec succès.");
+    } catch(err) {
+        logHtml(`❌ Erreur lors de la mise à jour du tableau de bord : ${err.message}`);
+    }
   }
 </script>
 </body>

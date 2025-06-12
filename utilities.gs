@@ -3,13 +3,13 @@ function onOpen() {
     ui.createMenu('Admin SF')
         .addItem('📊 Ajouter les données', 'showDialogBulk')
       .addToUi();
-  }
+}
 
 function showDialogBulk() { 
   var htmlOutput = HtmlService.createHtmlOutputFromFile('uploadFormBulk') 
       .setWidth(600)
       .setHeight(600);
-  SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'Importer les données en masse'); 
+  SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'Importer les données Semrush'); 
 }
 
 function parseCSV(content, delimiter = ",") {
