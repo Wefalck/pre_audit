@@ -545,3 +545,10 @@ function addKeywordSummaryTable() {
   var range = sheet2.getRange(2, 15, combinedArray.length, 3);
   range.setValues(combinedArray);
 }
+
+function formatDateSemrush(date) {
+	var monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+	var monthIndex = date.split("-");
+	monthIndex[1] = "20" + monthIndex[1];
+	return monthNames[parseInt(monthIndex[0], 10) - 1] + ' ' + monthIndex[1];
+}

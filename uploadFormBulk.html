@@ -135,7 +135,7 @@
     if (fill) fill.style.width = percent + "%";
   }
   
-  async function processAllFilesBulk(files) {
+async function processAllFilesBulk(files) {
     const filesByDate = {};
     files.forEach(file => {
       const match = file.fileName.match(/\d{8}/);
@@ -150,7 +150,18 @@
     let doneDates = 0;
     updateProgressBarBulk(0);
 
-    for (const sheetName of Object.keys(filesByDate).sort()) {
+    // --- MODIFICATION : Tri chronologique des dates ---
+    const sortedSheetNames = Object.keys(filesByDate).sort((a, b) => {
+      const [aMonth, aYear] = a.split('-').map(Number);
+      const [bMonth, bYear] = b.split('-').map(Number);
+      const dateA = new Date(2000 + aYear, aMonth - 1);
+      const dateB = new Date(2000 + bYear, bMonth - 1);
+      return dateA - dateB; // Trie du plus ancien au plus récent
+    });
+    // --- FIN DE LA MODIFICATION ---
+
+    // La boucle utilise maintenant les dates correctement triées
+    for (const sheetName of sortedSheetNames) {
       const fileList = filesByDate[sheetName];
       logHtml(`<hr><b>📅 Mois : ${sheetName} (${fileList.length} fichier(s))</b>`);
       let allMappedData = [];
@@ -178,6 +189,11 @@
           google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).createTargetSheet(sheetName, allMappedData);
         });
 
+        logHtml("🔍 Ajout des données M-6 et N-1...");
+        await new Promise((resolve, reject) => {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).applyDynamicFormulas(sheetName);
+        });
+
         logHtml("🎨 Formatage en cours...");
         await new Promise((resolve, reject) => {
           google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).appliquerFormatageFinal(sheetName, allMappedData.length);
@@ -193,7 +209,7 @@
     logHtml(`<hr><b>🏁 Import terminé pour tous les mois !</b>`);
     updateProgressBarBulk(100);
 
-        // 3. Lancement de la mise à jour du tableau de bord "Semrush"
+    // 3. Lancement de la mise à jour du tableau de bord "Semrush"
     try {
         logHtml("📊 Mise à jour du tableau de bord 'Semrush'...");
         await new Promise((resolve, reject) => {
